@@ -16,8 +16,8 @@ android {
         applicationId = "moe.reimu.catshare"
         minSdk = 29
         targetSdk = 35
-        versionCode = 16
-        versionName = "1.6.9"
+        versionCode = 22
+        versionName = "1.7.5"
     }
 
     signingConfigs {

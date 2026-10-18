@@ -18,48 +18,25 @@ class FocusTestActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val nm = NotificationManagerCompat.from(this)
         val progressId = 2001
-        val resultId = 2002
-
-        nm.notify(
-            progressId,
-            MiuiFocusNotification.buildNotification(
-                this,
-                NotificationUtils.RECEIVER_CHAN_ID,
-                progressId,
-                "正在接收",
-                "1.2 MB / 3.4 MB | 35%",
-                35,
-                ongoing = true,
-            )
-        )
 
         Thread {
-            Thread.sleep(2500)
-            nm.notify(
-                progressId,
-                MiuiFocusNotification.buildNotification(
-                    this,
-                    NotificationUtils.RECEIVER_CHAN_ID,
+            var percent = 0
+            repeat(14) {
+                nm.notify(
                     progressId,
-                    "正在接收",
-                    "2.4 MB / 3.4 MB | 70%",
-                    70,
-                    ongoing = true,
+                    MiuiFocusNotification.buildNotification(
+                        this,
+                        NotificationUtils.RECEIVER_CHAN_ID,
+                        progressId,
+                        "正在接收",
+                        "${percent}% | 2.4 MB / 3.4 MB",
+                        percent,
+                        ongoing = true,
+                    )
                 )
-            )
-            Thread.sleep(2500)
-            nm.notify(
-                resultId,
-                MiuiFocusNotification.buildNotification(
-                    this,
-                    NotificationUtils.RECEIVER_CHAN_ID,
-                    resultId,
-                    "接收完成",
-                    "已接收 2 个文件",
-                    null,
-                    ongoing = false,
-                )
-            )
+                Thread.sleep(2000)
+                percent = (percent + 7).coerceAtMost(100)
+            }
         }.apply { isDaemon = true }.start()
         finish()
     }

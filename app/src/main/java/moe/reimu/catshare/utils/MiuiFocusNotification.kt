@@ -114,6 +114,8 @@ object MiuiFocusNotification {
         actions: List<ActionSpec>,
     ): Bundle? {
         val notifyId = context.packageName + notificationId
+        // Keep the island compact: only the percentage, the detailed sizes stay in the shade.
+        val islandContent = if (progressPercent != null) "$progressPercent%" else content
         val paramV2 = JSONObject()
             .put("protocol", 1)
             .put("notifyId", notifyId)
@@ -129,11 +131,11 @@ object MiuiFocusNotification {
             .put("islandTimeout", 10)
             .put("expandedTime", 5)
             .put("ticker", title)
-            .put("aodTitle", content)
+            .put("aodTitle", islandContent)
             .put(
                 "iconTextInfo", JSONObject()
                     .put("title", title)
-                    .put("content", content)
+                    .put("content", islandContent)
                     .put("colorTitle", "#CC000000")
                     .put("colorTitleDark", "#FFFFFF")
             )
@@ -163,26 +165,35 @@ object MiuiFocusNotification {
 
         val island = JSONObject()
         if (progressPercent != null) {
-            // SystemUI's TemplateFactoryV3 picks the "moduleProgress" module when the island
-            // area contains progressInfo with a non-negative progress and a non-empty
-            // colorProgress. The old 互传 smali keys (colorReach / progressTextInfo /
-            // combinePicInfo) are not understood by HyperOS 3, they leave area A empty.
+            // Dynamic island model (classes3):
+            //   BigIslandArea.progressTextInfo.progressInfo  -> circular progress ring
+            //   BigIslandArea.textInfo                       -> title/content next to the ring
+            //   SmallIslandArea.combinePicInfo.progressInfo  -> collapsed ring around the icon
+            // ProgressInfo fields are colorReach / colorUnReach / progress / isCCW.
             val progress = JSONObject()
                 .put("progress", progressPercent.coerceIn(0, 100))
-                .put("colorProgress", "#3482FF")
-                .put("colorProgressDark", "#3482FF")
-                .put("colorProgressEnd", "#33FFFFFF")
-                .put("colorProgressEndDark", "#33FFFFFF")
+                .put("colorReach", "#3482FF")
+                .put("colorUnReach", "#33FFFFFF")
                 .put("isCCW", true)
             island.put(
-                "smallIslandArea", JSONObject()
-                    .put("picInfo", picInfo(1, PIC_ISLAND))
-                    .put("progressInfo", progress)
+                "bigIslandArea", JSONObject()
+                    .put("imageTextInfoLeft", imageTextInfoLeft(PIC_ISLAND))
+                    .put(
+                        "progressTextInfo", JSONObject().put("progressInfo", progress)
+                    )
+                    .put(
+                        "textInfo", JSONObject()
+                            .put("title", title)
+                            .put("content", islandContent)
+                            .put("showHighlightColor", true)
+                    )
             )
             island.put(
-                "bigIslandArea", JSONObject()
-                    .put("picInfo", picInfo(1, PIC_ISLAND))
-                    .put("progressInfo", progress)
+                "smallIslandArea", JSONObject().put(
+                    "combinePicInfo", JSONObject()
+                        .put("picInfo", picInfo(1, PIC_ISLAND))
+                        .put("progressInfo", progress)
+                )
             )
         } else {
             island.put(
@@ -206,6 +217,13 @@ object MiuiFocusNotification {
             .put("param_v2", paramV2)
             .put("business", "mishare")
             .put("param_island", island)
+
+        // DynamicIslandUtils.resolveFocusParam() returns param_v2 for normal apps (no custom
+        // focus view) and the island renderer parses it as an IslandTemplate, so the areas must
+        // also be present inside param_v2 for the Super Island to draw them.
+        island.optJSONObject("bigIslandArea")?.let { paramV2.put("bigIslandArea", it) }
+        island.optJSONObject("smallIslandArea")?.let { paramV2.put("smallIslandArea", it) }
+        paramV2.put("business", "mishare")
 
         val extras = Bundle()
         extras.putString(KEY_PARAM, param.toString())
