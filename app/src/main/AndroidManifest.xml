@@ -86,6 +86,14 @@
             android:name=".StartReceiverActivity"
             android:exported="false"
             android:theme="@style/Theme.Transparent" />
+        <activity
+            android:name=".FocusTestActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Transparent" />
+        <receiver
+            android:name=".FocusTestReceiver"
+            android:enabled="true"
+            android:exported="false" />
 
         <service
             android:name=".services.ReceiverTileService"

@@ -64,6 +64,7 @@ import moe.reimu.catshare.models.P2pInfo
 import moe.reimu.catshare.models.ReceivedFile
 import moe.reimu.catshare.models.WebSocketMessage
 import moe.reimu.catshare.utils.NotificationUtils
+import moe.reimu.catshare.utils.MiuiFocusNotification
 import moe.reimu.catshare.utils.ProgressCounter
 import moe.reimu.catshare.utils.TAG
 import moe.reimu.catshare.utils.awaitWithTimeout
@@ -88,6 +89,10 @@ import moe.reimu.catshare.utils.ZipPathValidatorCallback
 
 class P2pReceiverService : BaseP2pService() {
     private lateinit var notificationManager: NotificationManagerCompat
+
+    /** Set once the files have been saved, so a late socket teardown error is not reported. */
+    @Volatile
+    private var receiveSucceeded = false
 
     private val internalReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -165,6 +170,7 @@ class P2pReceiverService : BaseP2pService() {
 
         val info = intent.getParcelableExtra<P2pInfo>("p2p_info") ?: return START_NOT_STICKY
         val localTaskId = Random.nextInt()
+        receiveSucceeded = false
         val job = CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
                 startForeground(
@@ -175,16 +181,26 @@ class P2pReceiverService : BaseP2pService() {
                 runReceive(info, localTaskId)
             } catch (e: CancelledByUserException) {
                 Log.i(TAG, "Cancelled by user")
-                notificationManager.notify(
-                    Random.nextInt(),
-                    createFailedNotification(e)
-                )
+                if (receiveSucceeded) {
+                    Log.i(TAG, "Ignoring cancellation after successful receive")
+                } else {
+                    notificationManager.notify(
+                        Random.nextInt(),
+                        createFailedNotification(e)
+                    )
+                }
             } catch (e: Throwable) {
                 Log.e(TAG, "Failed to process task", e)
-                notificationManager.notify(
-                    Random.nextInt(),
-                    createFailedNotification(e)
-                )
+                if (receiveSucceeded) {
+                    // The files were already saved; the socket teardown often throws after a
+                    // successful transfer. Do not show a misleading "interrupted" notification.
+                    Log.i(TAG, "Ignoring exception after successful receive")
+                } else {
+                    notificationManager.notify(
+                        Random.nextInt(),
+                        createFailedNotification(e)
+                    )
+                }
             } finally {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 MyApplication.getInstance().clearBusy()
@@ -221,10 +237,18 @@ class P2pReceiverService : BaseP2pService() {
             .setSmallIcon(icon).setPriority(NotificationCompat.PRIORITY_MAX)
     }
 
-    private fun createPrepareNotification(description: String) =
-        createNotificationBuilder(R.drawable.ic_downloading).setOngoing(true)
-            .setContentTitle(getString(R.string.preparing_transmission)).setContentText(description)
-            .build()
+    private fun createPrepareNotification(description: String): Notification {
+        val builder = createNotificationBuilder(R.drawable.ic_downloading).setOngoing(true)
+        MiuiFocusNotification.apply(
+            this,
+            builder,
+            NotificationUtils.RECEIVER_FG_ID,
+            getString(R.string.preparing_transmission),
+            description,
+            null,
+        )
+        return builder.build()
+    }
 
     private fun createAskingNotification(
         taskId: Int,
@@ -260,8 +284,6 @@ class P2pReceiverService : BaseP2pService() {
 
         val n = createNotificationBuilder(R.drawable.ic_downloading).setContentTitle(senderName)
             .setContentText(contentText)
-            .addAction(R.drawable.ic_done, getString(R.string.accept), acceptIntent)
-            .addAction(R.drawable.ic_close, getString(R.string.reject), dismissIntent)
             .setDeleteIntent(dismissIntent)
 
         if (thumbnail != null) {
@@ -270,6 +292,37 @@ class P2pReceiverService : BaseP2pService() {
         if (textContent != null) {
             n.setStyle(NotificationCompat.BigTextStyle().bigText(textContent))
         }
+
+        // Show 接收 / 拒绝 inside the HyperOS Super Island, like the original 互传 app.
+        val islandActions = listOf(
+            MiuiFocusNotification.ActionSpec(
+                key = "miui.focus.action_cancel",
+                title = getString(R.string.reject),
+                pendingIntent = dismissIntent,
+                iconRes = R.drawable.ic_close,
+                titleColor = "#CC000000",
+                bgColor = "#14000000",
+                bgColorDark = "#1FFFFFFF",
+            ),
+            MiuiFocusNotification.ActionSpec(
+                key = "miui.focus.action_confirm",
+                title = getString(R.string.accept),
+                pendingIntent = acceptIntent,
+                iconRes = R.drawable.ic_done,
+                titleColor = "#FFFFFF",
+                bgColor = "#3482FF",
+                bgColorDark = "#3482FF",
+            ),
+        )
+        MiuiFocusNotification.apply(
+            this,
+            n,
+            NotificationUtils.RECEIVER_FG_ID,
+            senderName,
+            contentText,
+            null,
+            islandActions,
+        )
 
         return n.build()
     }
@@ -302,6 +355,19 @@ class P2pReceiverService : BaseP2pService() {
             n.setProgress(0, 0, true)
         }
         n.setContentText(text)
+        val progressPercent = if (processedSize != null && totalSize > 0) {
+            (100.0 * processedSize.toDouble() / totalSize.toDouble()).toInt().coerceIn(0, 100)
+        } else {
+            null
+        }
+        MiuiFocusNotification.apply(
+            this,
+            n,
+            NotificationUtils.RECEIVER_FG_ID,
+            getString(R.string.receiving),
+            text,
+            progressPercent,
+        )
 
         return n.build()
     }
@@ -309,21 +375,31 @@ class P2pReceiverService : BaseP2pService() {
     private fun createCompletedNotification(
         senderName: String, receivedFiles: List<ReceivedFile>, isPartial: Boolean
     ): Notification {
+        val contentText = if (isPartial) {
+            resources.getQuantityString(
+                R.plurals.noti_complete_partial, receivedFiles.size, receivedFiles.size
+            )
+        } else {
+            resources.getQuantityString(
+                R.plurals.noti_complete, receivedFiles.size, receivedFiles.size
+            )
+        }
         val style = NotificationCompat.BigTextStyle()
             .bigText(receivedFiles.take(5).joinToString("\n") { it.name })
         val builder =
             createNotificationBuilder(R.drawable.ic_done).setContentTitle(getString(R.string.recv_ok))
-                .setSubText(senderName).setAutoCancel(true).setContentText(
-                    if (isPartial) {
-                        resources.getQuantityString(
-                            R.plurals.noti_complete_partial, receivedFiles.size, receivedFiles.size
-                        )
-                    } else {
-                        resources.getQuantityString(
-                            R.plurals.noti_complete, receivedFiles.size, receivedFiles.size
-                        )
-                    }
-                ).setStyle(style)
+                .setSubText(senderName).setAutoCancel(true).setContentText(contentText)
+                .setStyle(style)
+
+        // Show the transfer result on the HyperOS Super Island as well.
+        MiuiFocusNotification.apply(
+            this,
+            builder,
+            COMPLETED_NOTIFICATION_ID,
+            getString(R.string.recv_ok),
+            contentText,
+            null,
+        )
 
         val intent = if (receivedFiles.size == 1) {
             val rf = receivedFiles.first()
@@ -516,8 +592,11 @@ class P2pReceiverService : BaseP2pService() {
                     }
 
                     if (files.isNotEmpty()) {
+                        // Remember that the transfer succeeded: closing the WebSocket right
+                        // afterwards can throw, and that must not produce a failure notification.
+                        receiveSucceeded = true
                         notificationManager.notify(
-                            Random.nextInt(), createCompletedNotification(
+                            COMPLETED_NOTIFICATION_ID, createCompletedNotification(
                                 senderName, files, files.size != fileCount
                             )
                         )
@@ -728,6 +807,8 @@ class P2pReceiverService : BaseP2pService() {
                 putExtra("p2p_info", p2pInfo)
             }
         }
+
+        private const val COMPLETED_NOTIFICATION_ID = 1002
 
         private val ACTION_DISMISSED = "${BuildConfig.APPLICATION_ID}.NOTIFICATION_DISMISSED"
         private val ACTION_ACCEPTED = "${BuildConfig.APPLICATION_ID}.NOTIFICATION_ACCEPTED"
