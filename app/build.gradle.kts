@@ -1,8 +1,8 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.parcelize)
@@ -10,17 +10,23 @@ plugins {
 
 android {
     namespace = "moe.reimu.catshare"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "moe.reimu.catshare"
         minSdk = 29
-        targetSdk = 36
-        versionCode = 7
-        versionName = "1.6"
+        targetSdk = 35
+        versionCode = 10
+        versionName = "1.6.3"
     }
 
     signingConfigs {
+        create("dev") {
+            storeFile = file("../debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         create("release") {
             file("../signing.properties").let { propFile ->
                 if (propFile.canRead()) {
@@ -60,17 +66,20 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             resValue("string", "app_name", "CatShare (Debug)")
+            signingConfig = signingConfigs.getByName("dev")
         }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    kotlinOptions {
+        jvmTarget = "11"
+    }
     buildFeatures {
         compose = true
         aidl = true
         buildConfig = true
-        resValues = true
     }
 
     packaging {
@@ -78,12 +87,6 @@ android {
             excludes += "META-INF/INDEX.LIST"
             excludes += "META-INF/*.properties"
         }
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget = JvmTarget.JVM_11
     }
 }
 
@@ -96,10 +99,9 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation(libs.androidx.compose.material.icons.extended)
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation("no.nordicsemi.android.kotlin.ble:client:1.3.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("no.nordicsemi.android.kotlin.ble:client:1.1.0")
 
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
@@ -118,6 +120,7 @@ dependencies {
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
 
+    compileOnly(project(":apistub"))
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }

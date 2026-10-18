@@ -213,9 +213,25 @@ class GattServerService : Service() {
             return
         }
 
-        ShizukuUtils.getMacAddress(this, "p2p0") {
-            if (it != null) {
-                updateMacAddress(it)
+        ShizukuUtils.getMacAddress(this, "p2p0") { mac ->
+            if (mac != null && mac != PLACEHOLDER_MAC) {
+                updateMacAddress(mac)
+            } else {
+                // Cold start: the first root probe may have timed out. Retry once before the
+                // receiver advertises itself with a placeholder identity.
+                Thread {
+                    try {
+                        moe.reimu.catshare.utils.RootUtils.clearCache()
+                        val forced = moe.reimu.catshare.utils.RootUtils.getP2pMacAddress()
+                        if (forced != null && forced != PLACEHOLDER_MAC) {
+                            updateMacAddress(forced)
+                        } else {
+                            Log.w(TAG, "No usable MAC address for receiver advertisement")
+                        }
+                    } catch (e: Throwable) {
+                        Log.e(TAG, "Forced MAC address read failed", e)
+                    }
+                }.apply { isDaemon = true }.start()
             }
         }
 
@@ -371,6 +387,8 @@ class GattServerService : Service() {
     }
 
     companion object {
+        private const val PLACEHOLDER_MAC = "02:00:00:00:00:00"
+
         fun getIntent(context: Context): Intent {
             return Intent(context, GattServerService::class.java)
         }

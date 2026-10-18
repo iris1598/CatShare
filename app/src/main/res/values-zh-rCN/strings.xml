@@ -31,8 +31,22 @@
     <string name="receiver_stopped">接收服务已停止</string>
     <string name="shizuku_available">Shizuku 可用</string>
     <string name="shizuku_unavailable">Shizuku 不可用</string>
-    <string name="shizuku_desc">本应用可使用 Shizuku 获取您设备的 MAC 地址</string>
+    <string name="shizuku_desc">本应用使用 Shizuku 获取您设备的 MAC 地址</string>
     <string name="shizuku_not_granted">Shizuku 未授权</string>
+    <string name="mac_address">MAC 地址</string>
+    <string name="mac_address_desc">用于标识此设备的 Wi-Fi Direct MAC 地址</string>
+    <string name="mac_detecting">正在检测 MAC 地址…</string>
+    <string name="mac_detected">已检测到 MAC：%1$s</string>
+    <string name="mac_not_detected">未检测到 MAC 地址</string>
+    <string name="mac_source">来源：%1$s</string>
+    <string name="mac_derived_warning">此 MAC 地址由其他网络接口推导而来，可能不准确</string>
+    <string name="redetect_mac">重新检测</string>
+    <string name="root_available">Root 可用（%1$s）</string>
+    <string name="root_unavailable">Root 不可用</string>
+    <string name="root_unavailable_desc">请在 Root 管理器中授予 CatShare 超级用户权限，以自动读取 Wi-Fi Direct MAC 地址</string>
+    <string name="mac_manual_override">手动指定 MAC（可选）</string>
+    <string name="mac_manual_override_desc">留空则自动读取 Wi-Fi Direct MAC 地址</string>
+    <string name="mac_invalid">MAC 地址格式无效，应为 aa:bb:cc:dd:ee:ff</string>
     <string name="title_activity_share">发送文件</string>
     <string name="sending">正在发送</string>
     <string name="send_fail">发送中断</string>
@@ -47,9 +61,6 @@
     <string name="title_activity_settings">设置</string>
     <string name="device_name">设备名称</string>
     <string name="device_name_default_value">我的手机</string>
-    <string name="manual_mac_address">手动 MAC 地址</string>
-    <string name="manual_mac_address_desc">可选，支持 00:11:22:33:44:55、001122334455、00-11-22-33-44-55 等格式，大小写会自动处理。</string>
-    <string name="manual_mac_address_invalid">MAC 地址格式无效，请输入 6 字节十六进制地址。</string>
     <string name="log_capture_failed">日志获取失败</string>
     <string name="capture_logs">捕获日志</string>
     <string name="capture_logs_desc">捕获调试日志以排查问题</string>
@@ -66,5 +77,5 @@
     <string name="cancelled_by_user_local">传输已被本设备取消</string>
     <string name="cancelled_by_user_remote">传输已被对端设备取消</string>
     <string name="wifi_disabled">WiFi 已关闭或不可用</string>
-    <string name="auto_accept_name">自动接收</string>
+    <string name="error_mac_unavailable">无法读取本机 MAC 地址。请先打开一次 CatShare，在设置中重新检测或手动指定 MAC 后重试。</string>
 </resources>

@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "CatShare"
 include(":app")
+include(":apistub")

@@ -451,33 +451,30 @@ class P2pReceiverService : BaseP2pService() {
                         BitmapFactory.decodeByteArray(body, 0, body.size)
                     } else null
 
-                    if (!AppSettings(this@P2pReceiverService).autoAccept) {
-                        // Ask user for confirmation
-                        updateNotification(
-                            createAskingNotification(
-                                localTaskId,
-                                senderName,
-                                fileName,
-                                fileCount,
-                                totalSize,
-                                bigPicture,
-                                textContent
-                            )
+                    updateNotification(
+                        createAskingNotification(
+                            localTaskId,
+                            senderName,
+                            fileName,
+                            fileCount,
+                            totalSize,
+                            bigPicture,
+                            textContent
                         )
+                    )
 
-                        val userResponse = withTimeoutOrNull(10000L) {
-                            waitForAction(localTaskId)
-                        }
+                    val userResponse = withTimeoutOrNull(10000L) {
+                        waitForAction(localTaskId)
+                    }
 
-                        if (userResponse != true) {
-                            wsSession.sendStatusIgnoreException(
-                                99,
-                                taskId,
-                                3,
-                                "user refuse"
-                            )
-                            throw CancelledByUserException(false)
-                        }
+                    if (userResponse != true) {
+                        wsSession.sendStatusIgnoreException(
+                            99,
+                            taskId,
+                            3,
+                            "user refuse"
+                        )
+                        throw CancelledByUserException(false)
                     }
 
                     if (textContent != null) {
@@ -681,8 +678,8 @@ class P2pReceiverService : BaseP2pService() {
                 }
 
                 when (intent.action) {
-                    ACTION_ACCEPTED -> it.resume(true) { cause, _, _ -> }
-                    ACTION_DISMISSED -> it.resume(false) { cause, _, _ -> }
+                    ACTION_ACCEPTED -> it.resume(true) {}
+                    ACTION_DISMISSED -> it.resume(false) {}
                 }
             }
         }

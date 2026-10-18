@@ -63,6 +63,7 @@ import moe.reimu.catshare.utils.BleUtils
 import moe.reimu.catshare.utils.DeviceUtils
 import moe.reimu.catshare.utils.JsonWithUnknownKeys
 import moe.reimu.catshare.utils.NotificationUtils
+import moe.reimu.catshare.utils.RootUtils
 import moe.reimu.catshare.utils.ShizukuUtils
 import moe.reimu.catshare.utils.TAG
 import moe.reimu.catshare.utils.awaitWithTimeout
@@ -391,8 +392,28 @@ class P2pSenderService : BaseP2pService() {
                     R.string.error_p2p_failed
                 )
 
-                val p2pMac = ShizukuUtils.getMacAddress(this@P2pSenderService, "p2p0") ?: "02:00:00:00:00:00"
-                Log.d(TAG, "Advertised local MAC address: $p2pMac")
+                var p2pMac = ShizukuUtils.getMacAddress(this@P2pSenderService, "p2p0")
+                if (p2pMac == null || p2pMac == PLACEHOLDER_MAC) {
+                    // Cold start (e.g. directly sharing after boot): the first root probe may have
+                    // timed out and returned the placeholder. Force a fresh read before pairing,
+                    // otherwise the receiver sees a bogus identity and the transfer times out.
+                    Log.w(TAG, "No usable MAC address yet, forcing root re-detection")
+                    RootUtils.clearCache()
+                    p2pMac = try {
+                        RootUtils.getP2pMacAddress()
+                    } catch (e: Throwable) {
+                        Log.e(TAG, "Forced MAC address read failed", e)
+                        null
+                    }
+                }
+                if (p2pMac == null || p2pMac == PLACEHOLDER_MAC) {
+                    throw ExceptionWithMessage(
+                        "Cannot determine local MAC address",
+                        IllegalStateException("no usable p2p0 MAC address"),
+                        R.string.error_mac_unavailable
+                    )
+                }
+                Log.i(TAG, "Advertised local MAC address: $p2pMac")
 
                 withTimeoutReason(
                     Duration.ofSeconds(10),
@@ -516,7 +537,7 @@ class P2pSenderService : BaseP2pService() {
             return START_NOT_STICKY
         }
 
-        @Suppress("DEPRECATION") val task = intent.getParcelableExtra<TaskInfo>("task") ?: return START_NOT_STICKY
+        val task = intent.getParcelableExtra<TaskInfo>("task") ?: return START_NOT_STICKY
         val job = CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
                 startForeground(
@@ -660,6 +681,8 @@ class P2pSenderService : BaseP2pService() {
 
     companion object {
         private const val ACTION_VERSION_NEGOTIATION = "versionNegotiation"
+
+        private const val PLACEHOLDER_MAC = "02:00:00:00:00:00"
 
         private const val ACTION_CANCEL_SENDING = "${BuildConfig.APPLICATION_ID}.CANCEL_SENDING"
 

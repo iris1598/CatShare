@@ -88,7 +88,7 @@ class ShareActivity : ComponentActivity() {
 
         val fileInfos = try {
             if (intent.action == Intent.ACTION_SEND) {
-                @Suppress("DEPRECATION") val uri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                val uri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
                 if (uri != null) {
                     listOf(uri).mapNotNull { extractFileInfo(it) }
                 } else {
@@ -100,11 +100,10 @@ class ShareActivity : ComponentActivity() {
                     )
                 }
             } else {
-                @Suppress("DEPRECATION") val uris = intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
+                val uris = intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
                 uris?.mapNotNull { extractFileInfo(it) } ?: emptyList()
             }
         } catch (e: Throwable) {
-            Log.e("ShareActivity", "Failed to extract file info", e)
             Toast.makeText(this, R.string.no_file_shared, Toast.LENGTH_SHORT).show()
             finish()
             return
@@ -119,6 +118,17 @@ class ShareActivity : ComponentActivity() {
         Log.i(TAG, "Shared ${fileInfos.size} files")
 
         ShizukuUtils.bindService()
+
+        // Warm up root/MAC resolution as early as possible. On a cold start (e.g. sharing right
+        // after boot without opening the app first) the first root probe can be slow; doing it
+        // while the user picks a recipient avoids sending with a placeholder MAC address.
+        Thread {
+            try {
+                moe.reimu.catshare.utils.RootUtils.getP2pMacAddress()
+            } catch (_: Throwable) {
+                // Ignore: the sender service retries before pairing.
+            }
+        }.apply { isDaemon = true }.start()
 
         enableEdgeToEdge()
         setContent {
@@ -146,7 +156,7 @@ class ShareActivity : ComponentActivity() {
                     } else {
                         it.getString(mimeIndex)
                     },
-                    it.getLong(it.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)),
+                    it.getInt(it.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)),
                     null
                 )
             } else {
@@ -161,6 +171,41 @@ class ShareActivity : ComponentActivity() {
 fun ShareActivityContent(files: List<FileInfo>) {
     val context = LocalContext.current
     val discoveredDevices = deviceScanner()
+    // PC 互传功能暂时搁置（代码保留，界面不暴露）。
+    val pcDevices = emptyList<PcTarget>()
+
+    var senderService by remember { mutableStateOf<P2pSenderService?>(null) }
+
+    LifecycleStartEffect(context) {
+        var isBound = false
+
+        val connection = object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName, service: IBinder) {
+                val binder = service as P2pSenderService.LocalBinder
+                isBound = true
+                senderService = binder.getService()
+            }
+
+            override fun onServiceDisconnected(name: ComponentName) {
+                isBound = false
+                senderService = null
+            }
+        }
+
+        context.bindService(
+            Intent(context, P2pSenderService::class.java),
+            connection,
+            Context.BIND_AUTO_CREATE
+        )
+
+        onStopOrDispose {
+            if (isBound) {
+                context.unbindService(connection)
+                isBound = false
+                senderService = null
+            }
+        }
+    }
 
     val listState = rememberLazyListState()
     val iconMod = Modifier
@@ -178,7 +223,7 @@ fun ShareActivityContent(files: List<FileInfo>) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(horizontal = 16.dp),
         ) {
-            if (discoveredDevices.isEmpty()) {
+            if (discoveredDevices.isEmpty() && pcDevices.isEmpty()) {
                 item {
                     Text(stringResource(R.string.scanning_desc))
                 }
@@ -340,3 +385,5 @@ fun deviceScanner(): List<DiscoveredDevice> {
 
     return discoveredDevices
 }
+
+data class PcTarget(val id: String, val device: DiscoveredDevice, val address: String)

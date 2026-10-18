@@ -2,7 +2,6 @@ package moe.reimu.catshare
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.core.content.edit
 
 class AppSettings(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("app", Context.MODE_PRIVATE)
@@ -13,44 +12,29 @@ class AppSettings(private val context: Context) {
             context.getString(R.string.device_name_default_value)
         )!!
         set(value) {
-            prefs.edit { putString("deviceName", value) }
-        }
-
-    var manualMacAddress: String
-        get() = prefs.getString("manualMacAddress", "")?.takeIf { it.isNotBlank() } ?: ""
-        set(value) {
-            val normalized = normalizeMacAddress(value)
-            prefs.edit { putString("manualMacAddress", normalized ?: "") }
+            prefs.edit().putString("deviceName", value).apply()
         }
 
     var verbose: Boolean
         get() = prefs.getBoolean("verbose", false)
         set(value) {
-            prefs.edit { putBoolean("verbose", value) }
+            prefs.edit().putBoolean("verbose", value).apply()
         }
 
-    var autoAccept: Boolean
-        get() = prefs.getBoolean("autoAccept", false)
+    /**
+     * Manually configured MAC address override, in the `aa:bb:cc:dd:ee:ff` format.
+     *
+     * Null (or an empty value) means automatic detection (root -> permission -> Shizuku).
+     */
+    var macAddress: String?
+        get() = prefs.getString("macAddress", null)
         set(value) {
-            prefs.edit { putBoolean("autoAccept", value) }
+            val editor = prefs.edit()
+            if (value.isNullOrBlank()) {
+                editor.remove("macAddress")
+            } else {
+                editor.putString("macAddress", value)
+            }
+            editor.apply()
         }
-
-    companion object {
-        fun normalizeMacAddress(value: String?): String? {
-            if (value == null) {
-                return null
-            }
-
-            val cleaned = value.trim().replace(Regex("[\\s:.-]"), "")
-            if (cleaned.length != 12) {
-                return null
-            }
-
-            if (!cleaned.all { it in '0'..'9' || it.lowercaseChar() in 'a'..'f' }) {
-                return null
-            }
-
-            return cleaned.chunked(2).joinToString(":") { it.lowercase() }
-        }
-    }
 }

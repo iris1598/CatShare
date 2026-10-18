@@ -34,8 +34,22 @@
     <string name="receiver_stopped">Receiver stopped</string>
     <string name="shizuku_available">Shizuku is available</string>
     <string name="shizuku_unavailable">Shizuku unavailable</string>
-    <string name="shizuku_desc">Shizuku can be used to obtain your device\'s MAC address</string>
+    <string name="shizuku_desc">Shizuku is used to obtain your device\'s MAC address</string>
     <string name="shizuku_not_granted">Shizuku permission not granted</string>
+    <string name="mac_address">MAC Address</string>
+    <string name="mac_address_desc">Wi-Fi Direct MAC address used to identify this device</string>
+    <string name="mac_detecting">Detecting MAC address…</string>
+    <string name="mac_detected">Detected MAC: %1$s</string>
+    <string name="mac_not_detected">MAC address not detected</string>
+    <string name="mac_source">Source: %1$s</string>
+    <string name="mac_derived_warning">This MAC address was derived from another interface and may be inaccurate</string>
+    <string name="redetect_mac">Re-detect</string>
+    <string name="root_available">Root available (%1$s)</string>
+    <string name="root_unavailable">Root unavailable</string>
+    <string name="root_unavailable_desc">Grant root access to CatShare in your root manager to read the Wi-Fi Direct MAC automatically</string>
+    <string name="mac_manual_override">Manual MAC override (optional)</string>
+    <string name="mac_manual_override_desc">Leave empty to read the Wi-Fi Direct MAC automatically</string>
+    <string name="mac_invalid">Invalid MAC address, expected format aa:bb:cc:dd:ee:ff</string>
     <string name="title_activity_share">Send Files</string>
     <string name="sending">Sending</string>
     <string name="send_fail">Sending interrupted</string>
@@ -50,9 +64,6 @@
     <string name="title_activity_settings">Settings</string>
     <string name="device_name">Device Name</string>
     <string name="device_name_default_value">My Phone</string>
-    <string name="manual_mac_address">Manual MAC Address</string>
-    <string name="manual_mac_address_desc">Optional. Supported formats: 00:11:22:33:44:55, 001122334455, 00-11-22-33-44-55. Case-insensitive.</string>
-    <string name="manual_mac_address_invalid">Invalid MAC address, please enter 6 bytes in hexadecimal form.</string>
     <string name="log_capture_failed">Failed to capture logs</string>
     <string name="capture_logs">Capture Logs</string>
     <string name="capture_logs_desc">Capture debug logs for troubleshooting</string>
@@ -69,5 +80,5 @@
     <string name="cancelled_by_user_local">Transmission has been cancalled by this device</string>
     <string name="cancelled_by_user_remote">Transmission has been cancelled by remote device</string>
     <string name="wifi_disabled">WiFi is disabled or unavailable</string>
-    <string name="auto_accept_name">Automatic Accept</string>
+    <string name="error_mac_unavailable">Cannot read this device\'s MAC address. Open CatShare once and re-detect it in Settings (or set it manually), then retry.</string>
 </resources>

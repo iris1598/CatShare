@@ -9,7 +9,7 @@ data class FileInfo(
     val uri: Uri,
     val name: String,
     val mimeType: String,
-    val size: Long,
+    val size: Int,
     val textContent: String?,
 ) : Parcelable
 

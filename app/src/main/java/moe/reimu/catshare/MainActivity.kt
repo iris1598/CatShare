@@ -54,6 +54,7 @@ import androidx.core.content.ContextCompat
 import moe.reimu.catshare.services.GattServerService
 import moe.reimu.catshare.ui.DefaultCard
 import moe.reimu.catshare.ui.theme.CatShareTheme
+import moe.reimu.catshare.utils.RootUtils
 import moe.reimu.catshare.utils.ServiceState
 import moe.reimu.catshare.utils.TAG
 import moe.reimu.catshare.utils.registerInternalBroadcastReceiver
@@ -165,6 +166,22 @@ fun MainActivityContent() {
         context.checkSelfPermission("android.permission.LOCAL_MAC_ADDRESS") == PackageManager.PERMISSION_GRANTED
     }
 
+    // When root is available the MAC address is read automatically, so the Shizuku hint below
+    // is not needed and would only be confusing.
+    var rootAvailable by remember {
+        mutableStateOf(false)
+    }
+
+    DisposableEffect(Unit) {
+        val thread = Thread {
+            rootAvailable = RootUtils.isRootAvailable()
+        }
+        thread.isDaemon = true
+        thread.start()
+
+        onDispose { }
+    }
+
     var shizukuGranted by remember {
         mutableStateOf(false)
     }
@@ -207,6 +224,10 @@ fun MainActivityContent() {
         }
     }
 
+    val iconMod = Modifier
+        .size(48.dp)
+        .padding(end = 16.dp)
+
     Scaffold(topBar = {
         TopAppBar(title = { Text(text = stringResource(R.string.app_name)) }, actions = {
             IconButton(onClick = {
@@ -233,7 +254,11 @@ fun MainActivityContent() {
                         modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        MyIcon(Icons.Filled.Share)
+                        Icon(
+                            imageVector = Icons.Filled.Share,
+                            contentDescription = null,
+                            modifier = iconMod,
+                        )
                         Column {
                             Text(
                                 text = stringResource(R.string.send),
@@ -253,8 +278,12 @@ fun MainActivityContent() {
                         modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        MyIcon(ImageVector.vectorResource(R.drawable.ic_bluetooth_searching))
-                        Column(modifier = Modifier.weight(1f)) {
+                        Icon(
+                            imageVector = ImageVector.vectorResource(R.drawable.ic_bluetooth_searching),
+                            contentDescription = null,
+                            modifier = iconMod,
+                        )
+                        Column {
                             Text(
                                 text = stringResource(R.string.discoverable),
                                 style = MaterialTheme.typography.titleMedium,
@@ -263,18 +292,19 @@ fun MainActivityContent() {
                                 text = stringResource(R.string.discoverable_desc),
                             )
                         }
+                        Spacer(modifier = Modifier.weight(1.0f))
                         Switch(checked = checked, onCheckedChange = {
                             if (it) {
                                 GattServerService.start(context)
                             } else {
                                 GattServerService.stop(context)
                             }
-                        }, modifier = Modifier.padding(start = 8.dp))
+                        })
                     }
                 }
             }
 
-            if (!localMacAddressGranted) {
+            if (!localMacAddressGranted && !rootAvailable) {
                 item {
                     DefaultCard(onClick = {
                         if (!shizukuGranted) {
@@ -289,12 +319,14 @@ fun MainActivityContent() {
                             modifier = Modifier.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            MyIcon(
-                                if (shizukuAvailable && shizukuGranted) {
+                            Icon(
+                                imageVector = if (shizukuAvailable && shizukuGranted) {
                                     ImageVector.vectorResource(R.drawable.ic_done)
                                 } else {
                                     ImageVector.vectorResource(R.drawable.ic_close)
-                                }
+                                },
+                                contentDescription = null,
+                                modifier = iconMod,
                             )
                             Column {
                                 Text(
@@ -361,15 +393,5 @@ class ChooseFilesContract : ActivityResultContract<Void?, List<Uri>>() {
 
         return ret
     }
-}
 
-@Composable
-fun MyIcon(imageVector: ImageVector) {
-    Icon(
-        imageVector = imageVector,
-        contentDescription = null,
-        modifier = Modifier
-            .size(48.dp)
-            .padding(end = 16.dp),
-    )
 }
